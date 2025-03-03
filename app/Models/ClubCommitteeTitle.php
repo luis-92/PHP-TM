@@ -6,23 +6,25 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Backpack\CRUD\app\Models\Traits\CrudTrait;
 
-class Member extends Model
+class ClubCommitteeTitle extends Model
 {
     use HasFactory, CrudTrait;
 
     protected $fillable = [
-        'user_id',
+        'member_id',
         'club_id',
-        'join_date',
+        'committee_title',
+        'start_date',
+        'end_date',
     ];
 
-    // Relación con User (Cada miembro pertenece a un usuario)
-    public function user()
+    // Relación con Member (Un título pertenece a un miembro)
+    public function member()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Member::class);
     }
 
-    // Relación con Club (Cada miembro pertenece a un club)
+    // Relación con Club (Un título pertenece a un club)
     public function club()
     {
         return $this->belongsTo(Club::class);

@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Requests\EvaluationRequest;
+use App\Http\Requests\UserRequest;
 use Backpack\CRUD\app\Http\Controllers\CrudController;
 use Backpack\CRUD\app\Library\CrudPanel\CrudPanelFacade as CRUD;
 
 /**
- * Class EvaluationCrudController
+ * Class UserCrudController
  * @package App\Http\Controllers\Admin
  * @property-read \Backpack\CRUD\app\Library\CrudPanel\CrudPanel $crud
  */
-class EvaluationCrudController extends CrudController
+class UserCrudController extends CrudController
 {
     use \Backpack\CRUD\app\Http\Controllers\Operations\ListOperation;
     use \Backpack\CRUD\app\Http\Controllers\Operations\CreateOperation;
@@ -26,9 +26,9 @@ class EvaluationCrudController extends CrudController
      */
     public function setup()
     {
-        CRUD::setModel(\App\Models\Evaluation::class);
-        CRUD::setRoute(config('backpack.base.route_prefix') . '/evaluation');
-        CRUD::setEntityNameStrings('evaluation', 'evaluations');
+        CRUD::setModel(\App\Models\User::class);
+        CRUD::setRoute(config('backpack.base.route_prefix') . '/user');
+        CRUD::setEntityNameStrings('user', 'users');
     }
 
     /**
@@ -55,7 +55,7 @@ class EvaluationCrudController extends CrudController
      */
     protected function setupCreateOperation()
     {
-        CRUD::setValidation(EvaluationRequest::class);
+        CRUD::setValidation(UserRequest::class);
         CRUD::setFromDb(); // set fields from db columns.
 
         /**

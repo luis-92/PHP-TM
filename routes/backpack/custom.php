@@ -18,12 +18,14 @@ Route::group([
 ], function () { // custom admin routes
     Route::crud('club', 'ClubCrudController');
     Route::crud('member', 'MemberCrudController');
-    Route::crud('session', 'SessionCrudController');
-    Route::crud('speech', 'SpeechCrudController');
     Route::crud('session-role', 'SessionRoleCrudController');
-    Route::crud('evaluation', 'EvaluationCrudController');
-    Route::crud('vote', 'VoteCrudController');
+    Route::crud('session-club-evaluation', 'SessionClubEvaluationCrudController');
+    Route::crud('session-vote', 'SessionVoteCrudController');
     Route::crud('toastmasters-session', 'ToastmastersSessionCrudController');
+    Route::crud('member-evaluation', 'MemberEvaluationCrudController');
+    Route::crud('experienced-member', 'ExperiencedMemberCrudController');
+    Route::crud('club-committee-title', 'ClubCommitteeTitleCrudController');
+    Route::crud('user', 'UserCrudController');
 }); // this should be the absolute last line of this file
 
 /**

@@ -6,50 +6,20 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class ToastmastersSessionRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     *
-     * @return bool
-     */
     public function authorize()
     {
-        // only allow updates if the user is logged in
-        return backpack_auth()->check();
+        return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array
-     */
     public function rules()
     {
         return [
-            // 'name' => 'required|min:5|max:255'
-        ];
-    }
-
-    /**
-     * Get the validation attributes that apply to the request.
-     *
-     * @return array
-     */
-    public function attributes()
-    {
-        return [
-            //
-        ];
-    }
-
-    /**
-     * Get the validation messages that apply to the request.
-     *
-     * @return array
-     */
-    public function messages()
-    {
-        return [
-            //
+            'club_id' => 'required|exists:clubs,id',
+            'session_date' => 'required|date',
+            'agenda' => 'required|string',
+            'notes' => 'nullable|string',
+            'status' => 'required|in:planned,in_progress,completed',
+            'duration' => 'nullable|integer|min:1',
         ];
     }
 }

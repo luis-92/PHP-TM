@@ -3,73 +3,119 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Requests\SessionRoleRequest;
+use App\Models\SessionRole;
 use Backpack\CRUD\app\Http\Controllers\CrudController;
 use Backpack\CRUD\app\Library\CrudPanel\CrudPanelFacade as CRUD;
 
-/**
- * Class SessionRoleCrudController
- * @package App\Http\Controllers\Admin
- * @property-read \Backpack\CRUD\app\Library\CrudPanel\CrudPanel $crud
- */
 class SessionRoleCrudController extends CrudController
 {
-    use \Backpack\CRUD\app\Http\Controllers\Operations\ListOperation;
-    use \Backpack\CRUD\app\Http\Controllers\Operations\CreateOperation;
-    use \Backpack\CRUD\app\Http\Controllers\Operations\UpdateOperation;
-    use \Backpack\CRUD\app\Http\Controllers\Operations\DeleteOperation;
-    use \Backpack\CRUD\app\Http\Controllers\Operations\ShowOperation;
-
-    /**
-     * Configure the CrudPanel object. Apply settings to all operations.
-     * 
-     * @return void
-     */
     public function setup()
     {
-        CRUD::setModel(\App\Models\SessionRole::class);
+        CRUD::setModel(SessionRole::class);
         CRUD::setRoute(config('backpack.base.route_prefix') . '/session-role');
-        CRUD::setEntityNameStrings('session role', 'session roles');
+        CRUD::setEntityNameStrings('Session Role', 'Session Roles');
     }
 
-    /**
-     * Define what happens when the List operation is loaded.
-     * 
-     * @see  https://backpackforlaravel.com/docs/crud-operation-list-entries
-     * @return void
-     */
     protected function setupListOperation()
     {
-        CRUD::setFromDb(); // set columns from db columns.
+        CRUD::addColumn([
+            'name' => 'session_id',
+            'label' => 'Session',
+            'type' => 'select',
+            'entity' => 'session',
+            'attribute' => 'session_date',
+            'model' => "App\Models\ToastmastersSession"
+        ]);
 
-        /**
-         * Columns can be defined using the fluent syntax:
-         * - CRUD::column('price')->type('number');
-         */
+        CRUD::addColumn([
+            'name' => 'role',
+            'label' => 'Role',
+            'type' => 'enum'
+        ]);
+
+        CRUD::addColumn([
+            'name' => 'member_id',
+            'label' => 'Assigned Member',
+            'type' => 'select',
+            'entity' => 'member',
+            'attribute' => 'id',
+            'model' => "App\Models\Member"
+        ]);
+
+        CRUD::addColumn([
+            'name' => 'substitute_member_id',
+            'label' => 'Substitute Member',
+            'type' => 'select',
+            'entity' => 'substituteMember',
+            'attribute' => 'id',
+            'model' => "App\Models\Member"
+        ]);
+
+        CRUD::addColumn([
+            'name' => 'replacement_member_id',
+            'label' => 'Replacement Member',
+            'type' => 'select',
+            'entity' => 'replacementMember',
+            'attribute' => 'id',
+            'model' => "App\Models\Member"
+        ]);
     }
 
-    /**
-     * Define what happens when the Create operation is loaded.
-     * 
-     * @see https://backpackforlaravel.com/docs/crud-operation-create
-     * @return void
-     */
     protected function setupCreateOperation()
     {
         CRUD::setValidation(SessionRoleRequest::class);
-        CRUD::setFromDb(); // set fields from db columns.
 
-        /**
-         * Fields can be defined using the fluent syntax:
-         * - CRUD::field('price')->type('number');
-         */
+        CRUD::addField([
+            'name' => 'session_id',
+            'label' => 'Session',
+            'type' => 'select2',
+            'entity' => 'session',
+            'attribute' => 'session_date',
+            'model' => "App\Models\ToastmastersSession"
+        ]);
+
+        CRUD::addField([
+            'name' => 'role',
+            'label' => 'Role',
+            'type' => 'select_from_array',
+            'options' => [
+                'grammarian' => 'Grammarian',
+                'timer' => 'Timer',
+                'ah-counter' => 'Ah-Counter',
+                'general_evaluator' => 'General Evaluator',
+                'speech_evaluator' => 'Speech Evaluator',
+            ],
+            'allows_null' => false
+        ]);
+
+        CRUD::addField([
+            'name' => 'member_id',
+            'label' => 'Assigned Member',
+            'type' => 'select2',
+            'entity' => 'member',
+            'attribute' => 'id',
+            'model' => "App\Models\Member"
+        ]);
+
+        CRUD::addField([
+            'name' => 'substitute_member_id',
+            'label' => 'Substitute Member',
+            'type' => 'select2',
+            'entity' => 'substituteMember',
+            'attribute' => 'id',
+            'model' => "App\Models\Member"
+        ]);
+
+        CRUD::addField([
+            'name' => 'replacement_member_id',
+            'label' => 'Replacement Member',
+            'type' => 'select2',
+            'entity' => 'replacementMember',
+            'attribute' => 'id',
+            'model' => "App\Models\Member"
+        ]);
     }
 
-    /**
-     * Define what happens when the Update operation is loaded.
-     * 
-     * @see https://backpackforlaravel.com/docs/crud-operation-update
-     * @return void
-     */
     protected function setupUpdateOperation()
     {
         $this->setupCreateOperation();

@@ -9,3 +9,4 @@
 <x-backpack::menu-item title="Evaluations" icon="la la-question" :link="backpack_url('evaluation')" />
 <x-backpack::menu-item title="Votes" icon="la la-question" :link="backpack_url('vote')" />
 <x-backpack::menu-item title="Toastmasters sessions" icon="la la-question" :link="backpack_url('toastmasters-session')" />
+<x-backpack::menu-item title="Users" icon="la la-question" :link="backpack_url('user')" />

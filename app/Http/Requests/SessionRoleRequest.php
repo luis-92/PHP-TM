@@ -6,50 +6,19 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class SessionRoleRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     *
-     * @return bool
-     */
     public function authorize()
     {
-        // only allow updates if the user is logged in
-        return backpack_auth()->check();
+        return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array
-     */
     public function rules()
     {
         return [
-            // 'name' => 'required|min:5|max:255'
-        ];
-    }
-
-    /**
-     * Get the validation attributes that apply to the request.
-     *
-     * @return array
-     */
-    public function attributes()
-    {
-        return [
-            //
-        ];
-    }
-
-    /**
-     * Get the validation messages that apply to the request.
-     *
-     * @return array
-     */
-    public function messages()
-    {
-        return [
-            //
+            'session_id' => 'required|exists:toastmasters_sessions,id',
+            'role' => 'required|in:grammarian,timer,ah-counter,general_evaluator,speech_evaluator',
+            'member_id' => 'nullable|exists:members,id',
+            'substitute_member_id' => 'nullable|exists:members,id',
+            'replacement_member_id' => 'nullable|exists:members,id',
         ];
     }
 }

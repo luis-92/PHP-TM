@@ -7,16 +7,17 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
-        Schema::create('club_evaluations', function (Blueprint $table) {
+        Schema::create('members', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('session_id')->constrained('toastmasters_sessions')->onDelete('cascade');
-            $table->text('evaluation_notes');
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('club_id')->constrained()->onDelete('cascade');
+            $table->date('join_date')->nullable();
             $table->timestamps();
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('club_evaluations');
+        Schema::dropIfExists('members');
     }
 };
