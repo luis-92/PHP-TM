@@ -6,9 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class ExecutiveCommittee extends Model
 {
-    //
-    protected $fillable = [
-        'role',
-        'active'
-    ];
+    protected $guarded = [];
+
+    public function club(){ return $this->belongsTo(Club::class); }
+    public function member(){ return $this->belongsTo(Member::class); }
 }

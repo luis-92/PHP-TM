@@ -2,19 +2,20 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable; // <— importante
+use Illuminate\Notifications\Notifiable;
 
-
-class User extends Model
+class User extends Authenticatable
 {
-    //
-    protected $fillable = [
-        'name', 
-        'email',
-        'password'
-    ];
+    use HasFactory, Notifiable;
 
-    protected $hidden = [
-        'password'
+    protected $fillable = ['name','email','password'];
+
+    protected $hidden = ['password','remember_token'];
+
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed', // Laravel 10/11: hashea automáticamente
     ];
 }

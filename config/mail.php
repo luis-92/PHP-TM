@@ -15,6 +15,8 @@ return [
     */
 
     'default' => env('MAIL_MAILER', 'log'),
+    'to_vpe' => env('MAIL_TO_VPE', 'admin@example.com'),
+
 
     /*
     |--------------------------------------------------------------------------
