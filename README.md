@@ -36,3 +36,33 @@ Generadas en `routes/backpack/custom.php` para todos los CrudControllers en `App
 
 ## Sidebar (Backpack)
 El menú lateral se sobreescribe en `resources/views/vendor/backpack/ui/inc/menu_items.blade.php` e incluye todos los CRUDs detectados y el enlace a Reportes.
+
+
+
+
+
+## Explicacion de diagrama de rutas
+
+🌍 Usuario (URL: /admin/dashboard)
+               │
+               ▼
+📌 Route: busca coincidencia en rutas
+(Route::get('dashboard', [DashboardController::class, 'index']))
+               │
+               ▼
+🛡️ Middleware: filtros de acceso
+ - web  → sesiones, cookies, CSRF
+ - auth → debe estar logueado
+ - role → (opcional) verificar rol
+               │
+               ▼
+🧭 Controller
+App\Http\Controllers\Admin\DashboardController
+               │
+               ▼
+🛠️ Método (acción)
+index() → return view('dashboard')
+               │
+               ▼
+🎨 Respuesta
+HTML (vista), JSON o Redirección
