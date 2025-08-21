@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;   // ⬅️ IMPORTANTE
 use App\Models\Member;
+use App\Models\Club;
 use App\Models\ClubSession;
 use App\Models\Speech;
 use App\Models\Attendance;
@@ -13,11 +13,14 @@ class ReportsController extends Controller
 {
     public function overview()
     {
-        $totalMembers = Member::count();
-        $sessionsThisMonth = ClubSession::whereMonth('date', now()->month)->whereYear('date', now()->year)->count();
-        $speechesThisMonth = Speech::whereMonth('date', now()->month)->whereYear('date', now()->year)->count();
-        $avgAttendance = Attendance::whereMonth('date', now()->month)->whereYear('date', now()->year)->avg('present');
+        $totalMembers     = Member::count();
+        $totalClubs       = Club::count();
+        $upcomingSessions = ClubSession::whereDate('session_date', '>=', now()->toDateString())->count();
+        $totalSpeeches    = Speech::count();
+        $totalAttendances = Attendance::count();
 
-        return view('admin.reports.overview', compact('totalMembers', 'sessionsThisMonth', 'speechesThisMonth', 'avgAttendance'));
+        return view('admin.reports.overview', compact(
+            'totalMembers','totalClubs','upcomingSessions','totalSpeeches','totalAttendances'
+        ));
     }
 }
