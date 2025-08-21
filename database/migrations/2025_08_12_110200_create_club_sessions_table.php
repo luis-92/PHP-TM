@@ -9,17 +9,19 @@ return new class extends Migration {
         Schema::create('club_sessions', function (Blueprint $t) {
             $t->id();
             $t->foreignId('club_id')->constrained('clubs')->cascadeOnDelete();
-            $t->date('date');
-            $t->string('session_type')->nullable();
-            $t->string('location')->nullable();
-            $t->time('planned_time')->nullable();
+            $t->date('session_date');
             $t->time('start_time')->nullable();
             $t->time('end_time')->nullable();
-            $t->string('notes')->nullable();
+            $t->string('theme')->nullable();
+            $t->string('location')->nullable();
+            $t->text('agenda_notes')->nullable();
             $t->timestamps();
-            $t->unique(['club_id','date'], 'club_session_day_uq');
 
+            $t->unique(['club_id', 'session_date']); // 1 sesión por día por club
         });
     }
-    public function down(): void { Schema::dropIfExists('club_sessions'); }
+
+    public function down(): void {
+        Schema::dropIfExists('club_sessions');
+    }
 };

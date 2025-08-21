@@ -6,7 +6,7 @@ use App\Http\Requests\ClubSessionRequest;
 use Backpack\CRUD\app\Http\Controllers\CrudController;
 use Backpack\CRUD\app\Library\CrudPanel\CrudPanelFacade as CRUD;
 
-// Operaciones
+// Operaciones de Backpack
 use Backpack\CRUD\app\Http\Controllers\Operations\ListOperation;
 use Backpack\CRUD\app\Http\Controllers\Operations\CreateOperation;
 use Backpack\CRUD\app\Http\Controllers\Operations\UpdateOperation;
@@ -17,41 +17,61 @@ use Backpack\CRUD\app\Http\Controllers\Operations\FetchOperation;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
+/**
+ * CRUD para crear/editar sesiones de club.
+ *
+ * Puntos clave:
+ * - En el formulario, los campos de asignación de funcionarios (president, timer, etc.)
+ *   se implementan con select2_from_ajax (NO 'relationship'), para no requerir
+ *   relaciones directas en el modelo ClubSession y evitar el 500.
+ * - Esos campos "fake" se guardan manualmente en la tabla
+ *   session_functionary_role_assignments en saveRoleAssignments().
+ * - Se calculan defaults (fecha/horas/minutos) ANTES de validar.
+ */
 class ClubSessionCrudController extends CrudController
 {
     use ListOperation, CreateOperation, UpdateOperation, DeleteOperation, ShowOperation;
     use FetchOperation;
 
+    /** Configuración base del CRUD */
     public function setup(): void
     {
         CRUD::setModel(\App\Models\ClubSession::class);
-        // Asegúrate que coincide con routes/backpack/custom.php → Route::crud('clubsession', ...)
+        // Debe coincidir con la ruta definida en routes/backpack/custom.php (Route::crud)
         CRUD::setRoute(config('backpack.base.route_prefix') . '/clubsession');
         CRUD::setEntityNameStrings('session', 'sessions');
 
-        // Evitar N+1
+        // Evitar N+1 en List
         CRUD::addClause('with', ['club:id,name']);
     }
 
-    /* -------------------------- LIST -------------------------- */
+    /* ==========================================================
+     |                        LIST OPERATION
+     ========================================================== */
     protected function setupListOperation(): void
     {
-        CRUD::addColumn(['name' => 'club', 'type' => 'relationship', 'label' => 'Club', 'attribute' => 'name']);
+        CRUD::addColumn([
+            'name'      => 'club',
+            'type'      => 'relationship',
+            'label'     => 'Club',
+            'attribute' => 'name',
+        ]);
         CRUD::addColumn(['name' => 'session_date', 'type' => 'date', 'label' => 'Date']);
         CRUD::addColumn(['name' => 'session_type', 'type' => 'text', 'label' => 'Type']);
-        CRUD::addColumn(['name' => 'start_time', 'type' => 'time', 'label' => 'Start']);
-        CRUD::addColumn(['name' => 'end_time',   'type' => 'time', 'label' => 'End']);
-        CRUD::addColumn(['name' => 'status',     'type' => 'text', 'label' => 'Status']);
-        CRUD::addColumn(['name' => 'location',   'type' => 'text', 'label' => 'Location']);
-        CRUD::addColumn(['name' => 'word_of_day','type' => 'text', 'label' => 'Word']);
+        CRUD::addColumn(['name' => 'start_time',   'type' => 'time', 'label' => 'Start']);
+        CRUD::addColumn(['name' => 'end_time',     'type' => 'time', 'label' => 'End']);
+        CRUD::addColumn(['name' => 'status',       'type' => 'text', 'label' => 'Status']);
+        CRUD::addColumn(['name' => 'location',     'type' => 'text', 'label' => 'Location']);
+        CRUD::addColumn(['name' => 'word_of_day',  'type' => 'text', 'label' => 'Word']);
 
-        // Filtros
+        // Filtro por club
         CRUD::addFilter(
             ['type' => 'select2', 'name' => 'club_id', 'label' => 'Club'],
             fn() => \App\Models\Club::orderBy('name')->pluck('name', 'id')->toArray(),
             fn($v) => CRUD::addClause('where', 'club_id', $v)
         );
 
+        // Filtro por rango de fechas
         CRUD::addFilter(
             ['type' => 'date_range', 'name' => 'session_date', 'label' => 'Date range'],
             false,
@@ -62,12 +82,12 @@ class ClubSessionCrudController extends CrudController
             }
         );
 
+        // Filtros por tipo y estatus
         CRUD::addFilter(
             ['type' => 'dropdown', 'name' => 'session_type', 'label' => 'Type'],
             ['Regular'=>'Regular','Contest'=>'Contest','Officer'=>'Officer','Special'=>'Special'],
             fn($v) => CRUD::addClause('where', 'session_type', $v)
         );
-
         CRUD::addFilter(
             ['type' => 'dropdown', 'name' => 'status', 'label' => 'Status'],
             ['Scheduled'=>'Scheduled','Held'=>'Held','Canceled'=>'Canceled'],
@@ -75,12 +95,15 @@ class ClubSessionCrudController extends CrudController
         );
     }
 
-    /* -------------------------- CREATE/UPDATE FORM -------------------------- */
+    /* ==========================================================
+     |                     CREATE / UPDATE FORM
+     ========================================================== */
     protected function setupCreateOperation(): void
     {
         CRUD::setValidation(ClubSessionRequest::class);
 
-        // Club (relationship + AJAX + inline create)
+        /* ---------- Pestaña: General ---------- */
+        // Club (relationship con AJAX + inline create)
         CRUD::addField([
             'name'        => 'club',
             'type'        => 'relationship',
@@ -94,21 +117,22 @@ class ClubSessionCrudController extends CrudController
             'tab'         => 'General',
         ]);
 
-        // Fecha (si no la eliges, luego se sugiere la próxima según el club)
+        // Fecha de sesión
         CRUD::addField([
-            'name' => 'session_date', 'type' => 'date_picker', 'label' => 'Date',
+            'name' => 'session_date',
+            'type' => 'date_picker',
+            'label' => 'Date',
             'date_picker_options' => ['format' => 'dd/mm/yyyy', 'todayBtn' => true],
             'tab'  => 'General',
         ]);
 
-        // Tipo de sesión y estado
+        // Tipo y estatus
         CRUD::addField([
             'name' => 'session_type', 'type' => 'select_from_array', 'label' => 'Type',
             'options' => ['Regular'=>'Regular','Contest'=>'Contest','Officer'=>'Officer','Special'=>'Special'],
             'allows_null' => true,
             'tab' => 'General',
         ]);
-
         CRUD::addField([
             'name' => 'status', 'type' => 'select_from_array', 'label' => 'Status',
             'options' => ['Scheduled'=>'Scheduled','Held'=>'Held','Canceled'=>'Canceled'],
@@ -116,7 +140,7 @@ class ClubSessionCrudController extends CrudController
             'tab' => 'General',
         ]);
 
-        // Horas generales (si faltan, luego se completan con meeting_time y +120 min)
+        // Horas generales
         CRUD::addField(['name'=>'planned_time','type'=>'time','label'=>'Planned time','tab'=>'General']);
         CRUD::addField(['name'=>'start_time',  'type'=>'time','label'=>'Start time',  'tab'=>'General']);
         CRUD::addField(['name'=>'end_time',    'type'=>'time','label'=>'End time',    'tab'=>'General']);
@@ -124,21 +148,24 @@ class ClubSessionCrudController extends CrudController
         CRUD::addField(['name'=>'location','type'=>'text','label'=>'Location','tab'=>'General']);
         CRUD::addField(['name'=>'notes','type'=>'textarea','label'=>'Notes','tab'=>'General']);
 
-        // Palabra del día
+        /* ---------- Pestaña: Word of the day ---------- */
         CRUD::addField(['name'=>'word_of_day','type'=>'text','label'=>'Word of the day','tab'=>'Word']);
         CRUD::addField(['name'=>'word_definition','type'=>'textarea','label'=>'Definition','tab'=>'Word']);
         CRUD::addField(['name'=>'word_example','type'=>'textarea','label'=>'Example','tab'=>'Word']);
 
-        /* ---------------- Agenda (tiempos sugeridos) ---------------- */
+        /* ---------- Pestaña: Agenda (tiempos) ----------
+         * NOTA: Si en DB guardas columnas TIME, valida formato en el Request (H:i)
+         * y considera castear como string en el modelo para evitar issues con datetime.
+         */
         $blocks = [
             ['welcome_at','welcome_minutes','Welcome','mins', 2],
             ['opening_at','opening_minutes','Opening','mins', 3],
             ['toastmaster_intro_at','toastmaster_intro_minutes','TM intro','mins', 3],
             ['roles_intro_at','roles_intro_minutes','Roles intro + Word','mins', 8],
             ['table_topics_at','table_topics_minutes','Table Topics','mins', 25],
-            ['break_at','break_minutes','Break','mins', 10], // sugerido, editable
-            ['prepared_speeches_at','prepared_speeches_minutes','Prepared Speeches','mins', null], // variable
-            ['general_evaluation_at','general_evaluation_minutes','General Evaluation','mins', null], // variable
+            ['break_at','break_minutes','Break','mins', 10],
+            ['prepared_speeches_at','prepared_speeches_minutes','Prepared Speeches','mins', null],
+            ['general_evaluation_at','general_evaluation_minutes','General Evaluation','mins', null],
             ['toastmaster_closing_at','toastmaster_closing_minutes','TM closing','mins', 2],
             ['presidency_time_at','presidency_time_minutes','Presidency time','mins', 10],
             ['timer_report_at','timer_report_minutes','Timer report','mins', 2],
@@ -151,99 +178,121 @@ class ClubSessionCrudController extends CrudController
             CRUD::addField($field);
         }
 
-        /* ---------------- Asignaciones (sugeridas pero editables) ----------------
-           Estas NO son columnas de club_sessions. Las guardamos en
-           session_functionary_role_assignments al guardar la sesión.
-           Para las dos que vienen del comité (presidente y oficial de asambleas),
-           si no las eliges, se consultan de club_officers y se guardan. */
+        /* ---------- Pestaña: Assignments ----------
+         * Campos "fake" que NO son relaciones del modelo ClubSession.
+         * Usamos select2_from_ajax para listar miembros del club seleccionado.
+         * Luego, en saveRoleAssignments(), se insertan filas en
+         * session_functionary_role_assignments.
+         */
         $assignFields = [
-            // name del field => [etiqueta, role_code]
-            'role_official_assembly'   => ['Official of Assembly (SAA)', 'sergeant_at_arms'],
-            'role_president'           => ['President',                   'president'],
-            'role_toastmaster'         => ['Toastmaster of the Day',      'toastmaster'],
-            'role_general_evaluator'   => ['General Evaluator',           'general_evaluator'],
-            'role_grammarian'          => ['Grammarian',                  'grammarian'],
-            'role_ah_counter'          => ['Ah-Counter',                  'ah_counter'],
-            'role_timer'               => ['Timer',                       'timer'],
+            'role_official_assembly' => ['Official of Assembly (SAA)', 'sergeant_at_arms'],
+            'role_president'         => ['President',                   'president'],
+            'role_toastmaster'       => ['Toastmaster of the Day',      'toastmaster'],
+            'role_general_evaluator' => ['General Evaluator',           'general_evaluator'],
+            'role_grammarian'        => ['Grammarian',                  'grammarian'],
+            'role_ah_counter'        => ['Ah-Counter',                  'ah_counter'],
+            'role_timer'             => ['Timer',                       'timer'],
         ];
         foreach ($assignFields as $name => [$label, $code]) {
             CRUD::addField([
-                'name'      => $name,                     // campo "fake", no mapea a DB
-                'type'      => 'relationship',            // select2 AJAX sobre Member
-                'entity'    => 'members',                 // Backpack ignora, pero mantiene coherencia
-                'model'     => \App\Models\Member::class, // para clarity
-                'attribute' => 'name',
-                'label'     => $label,
-                'ajax'      => true,
+                'name'        => $name, // campo fake (no mapea a DB de club_sessions)
+                'label'       => $label,
+                'type'        => 'select2_from_ajax',
+                'data_source' => backpack_url('clubsession/fetch/members-by-club'), // método fetchMembersByClub()
+                'placeholder' => 'Selecciona miembro…',
                 'minimum_input_length' => 1,
-                'placeholder' => 'Selecciona (se sugiere automáticamente si lo dejas vacío)',
-                'tab'       => 'Assignments',
-                // Limitar miembros al club seleccionado (si ya se eligió)
-                'options'   => function ($q) {
-                    $clubId = request('club') ?? request('club_id');
-                    return $clubId ? $q->where('club_id', $clubId)->orderBy('name') : $q->orderBy('name');
-                },
+                'method'      => 'POST',
+                'dependencies'=> ['club'],               // se recarga al cambiar el club
+                'include_all_form_fields' => true,       // envía 'club' al endpoint
+                'attribute'   => 'name',                 // campo visible del modelo Member
+                'tab'         => 'Assignments',
+                'allows_null' => true,
             ]);
         }
     }
 
+    /** Update usa el mismo formulario que Create */
     protected function setupUpdateOperation(): void
     {
         $this->setupCreateOperation();
     }
 
-    /* -------------------------- STORE/UPDATE con sugerencias -------------------------- */
+    /* ==========================================================
+     |                    STORE / UPDATE OVERRIDES
+     |  (defaults antes de validar + guardado de assignments)
+     ========================================================== */
 
+    /** Crear */
     public function store()
     {
-        // 1) Completar defaults ANTES de validar (para que pase reglas como end_time after start_time)
+        // 1) Completar defaults ANTES de validar (fecha / horas / minutos)
         $this->applySessionDefaultsToRequest();
 
-        // 2) Validar
+        // 2) Validar (usa ClubSessionRequest)
         $this->crud->setRequest($this->crud->validateRequest());
 
-        // 3) Crear sesión
-        $item = $this->crud->create($this->crud->getStrippedSaveRequest());
+        // 3) Crear la sesión (solo columnas de club_sessions)
+        $entry = $this->crud->create($this->crud->getStrippedSaveRequest());
 
-        // 4) Guardar asignaciones (usando sugeridos si no elegiste)
-        $this->saveRoleAssignments($item->id, (int) $item->club_id);
+        // 4) Guardar asignaciones (presidente, timer, etc.)
+        $this->saveRoleAssignments($entry->id, (int)$entry->club_id);
 
         // 5) Responder
         \Alert::success('Session created.')->flash();
-        return $this->crud->performSaveAction($item->getKey());
+        return $this->crud->performSaveAction($entry->getKey());
     }
 
+    /** Actualizar */
     public function update()
     {
-        // 1) Defaults (mismo criterio que store)
+        // 1) Defaults ANTES de validar
         $this->applySessionDefaultsToRequest();
 
         // 2) Validar
         $this->crud->setRequest($this->crud->validateRequest());
 
         // 3) Actualizar sesión
-        $item = $this->crud->update($this->crud->getCurrentEntryId(), $this->crud->getStrippedSaveRequest());
+        $entry = $this->crud->update($this->crud->getCurrentEntryId(), $this->crud->getStrippedSaveRequest());
 
         // 4) Reescribir asignaciones (idempotente)
-        $this->saveRoleAssignments($item->id, (int) $item->club_id, replace: true);
+        $this->saveRoleAssignments($entry->id, (int)$entry->club_id, replace: true);
 
         \Alert::success('Session updated.')->flash();
-        return $this->crud->performSaveAction($item->getKey());
+        return $this->crud->performSaveAction($entry->getKey());
     }
 
-    /* -------------------------- FETCH para el field "club" -------------------------- */
-    public function fetchClub()
-    {
-        return $this->fetch(\App\Models\Club::class, ['id','name'], fn($q)=>$q->orderBy('name'));
-    }
-
-    /* ========================== Helpers internos ========================== */
+    /* ==========================================================
+     |                           FETCH
+     |  Endpoints AJAX para llenar combos (Backpack FetchOperation)
+     ========================================================== */
 
     /**
-     * Completa valores por defecto en el Request:
-     * - fecha: próxima fecha del día de reunión del club (si está vacío)
-     * - start_time: hora de reunión del club (si está vacío)
-     * - end_time: start + 120 min (si está vacío)
+     * Devuelve miembros del club seleccionado para los select2_from_ajax
+     * Ruta automática: /admin/clubsession/fetch/members-by-club  (POST)
+     * (Backpack genera la ruta a partir del nombre del método)
+     */
+    public function fetchMembersByClub()
+    {
+        // Gracias a 'include_all_form_fields' recibimos todos los campos del form.
+        // 'club' es el nombre del field relationship del club en el formulario.
+        $clubId = request('form')['club'] ?? request('club_id') ?? null;
+
+        return $this->fetch(\App\Models\Member::class, ['id','name'], function ($q) use ($clubId) {
+            if ($clubId) $q->where('club_id', (int)$clubId);
+            $q->orderBy('name');
+        });
+    }
+
+    /* ==========================================================
+     |                          HELPERS
+     ========================================================== */
+
+    /**
+     * Completa valores por defecto directamente en el Request:
+     * - session_date: próxima fecha según meeting_day del club (si está vacío)
+     * - start_time: meeting_time del club (si está vacío)
+     * - end_time: start_time + 120 min (si está vacío)
+     * - minutos por defecto para bloques comunes de agenda
      */
     protected function applySessionDefaultsToRequest(): void
     {
@@ -252,19 +301,19 @@ class ClubSessionCrudController extends CrudController
 
         $club = $clubId ? \App\Models\Club::find($clubId) : null;
 
-        // Fecha sugerida (próxima según meeting_day del club)
+        // Fecha sugerida (próxima al meeting_day del club)
         $sessionDate = $request->input('session_date');
         if (!$sessionDate && $club && !empty($club->meeting_day)) {
             $sessionDate = $this->nextDateForWeekday($club->meeting_day);
         }
 
-        // Start sugerido: hora de reunión del club
+        // Hora inicio sugerida
         $start = $request->input('start_time');
         if (!$start && $club && !empty($club->meeting_time)) {
-            $start = $club->meeting_time; // 'H:i:s' o 'H:i'
+            $start = $club->meeting_time; // 'H:i' o 'H:i:s'
         }
 
-        // End sugerido: start + 120 min
+        // Hora fin sugerida = inicio + 120 min
         $end = $request->input('end_time');
         if (!$end && $start) {
             try {
@@ -277,7 +326,7 @@ class ClubSessionCrudController extends CrudController
         if ($start)       $merge['start_time']   = $start;
         if ($end)         $merge['end_time']     = $end;
 
-        // Defaults de minutos si vienen vacíos
+        // Minutos por defecto si vienen vacíos
         $defaults = [
             'welcome_minutes' => 2,
             'opening_minutes' => 3,
@@ -300,8 +349,17 @@ class ClubSessionCrudController extends CrudController
     }
 
     /**
-     * Guarda asignaciones en session_functionary_role_assignments.
-     * Usa los campos del form si los elegiste; si no, sugiere desde el comité (club_officers).
+     * Inserta/actualiza asignaciones en session_functionary_role_assignments.
+     * Lee los campos "fake" del formulario (role_president, role_timer, etc.).
+     * Si replace=true, borra previamente las asignaciones de ese set de roles.
+     *
+     * Requiere una tabla como:
+     *  - club_session_id (FK)
+     *  - member_id (FK nullable)
+     *  - role_code (string)  // e.g. 'president', 'timer', ...
+     *  - created_at / updated_at
+     *
+     * Ajusta los nombres si tu migración difiere.
      */
     protected function saveRoleAssignments(int $clubSessionId, int $clubId, bool $replace = false): void
     {
@@ -316,7 +374,6 @@ class ClubSessionCrudController extends CrudController
             'role_timer'             => 'timer',
         ];
 
-        // Si replace, borra las anteriores de este set
         if ($replace) {
             DB::table('session_functionary_role_assignments')
                 ->where('club_session_id', $clubSessionId)
@@ -329,18 +386,15 @@ class ClubSessionCrudController extends CrudController
         foreach ($map as $field => $roleCode) {
             $memberId = $req->input($field);
 
-            // Si no elegiste en el form, sugerimos desde el comité
-            if (!$memberId) {
-                // Sugerimos solo para presidente y SAA; el resto queda vacío si no elegiste
-                if (in_array($roleCode, ['president','sergeant_at_arms'])) {
-                    $memberId = $this->suggestOfficer($clubId, $roleCode);
-                }
+            // Si no se seleccionó en el form, intenta sugerir desde comité (opcional)
+            if (!$memberId && in_array($roleCode, ['president','sergeant_at_arms'])) {
+                $memberId = $this->suggestOfficer($clubId, $roleCode);
             }
 
             if ($memberId) {
                 DB::table('session_functionary_role_assignments')->insert([
                     'club_session_id' => $clubSessionId,
-                    'member_id'       => (int) $memberId,
+                    'member_id'       => (int)$memberId,
                     'role_code'       => $roleCode,
                     'created_at'      => now(),
                     'updated_at'      => now(),
@@ -350,9 +404,10 @@ class ClubSessionCrudController extends CrudController
     }
 
     /**
-     * Busca el miembro vigente en el comité para un role_code dado.
-     * Asume una tabla club_officers con: club_id, member_id, role_code, term_start, term_end, is_active.
-     * Ajusta nombres de columnas si tu tabla difiere.
+     * Devuelve el miembro vigente del comité para un role_code dado (si existe).
+     * Requiere una tabla tipo club_officers con:
+     *  club_id, member_id, role_code, term_start, term_end, is_active
+     * Ajusta si tu esquema es distinto.
      */
     protected function suggestOfficer(int $clubId, string $roleCode): ?int
     {
@@ -368,20 +423,18 @@ class ClubSessionCrudController extends CrudController
                 $today = now()->toDateString();
                 $q->whereNull('term_end')->orWhere('term_end', '>=', $today);
             })
-            ->where(function ($q) {
-                // si tienes columna is_active = 1
-                try { $q->where('is_active', 1); } catch (\Throwable $e) {}
+            ->when(DB::getSchemaBuilder()->hasColumn('club_officers', 'is_active'), function ($q) {
+                $q->where('is_active', 1);
             })
             ->orderByDesc('term_start')
             ->first();
 
-        return $row?->member_id ? (int) $row->member_id : null;
+        return $row?->member_id ? (int)$row->member_id : null;
     }
 
     /**
-     * Devuelve la fecha próxima para un día de la semana.
-     * Admite valores tipo 'Mon','Tue','Wed','Thu','Fri','Sat','Sun'
-     * o en español 'Lun','Mar','Mié','Jue','Vie','Sáb','Dom'.
+     * Calcula la siguiente fecha (Y-m-d) para un día de la semana dado.
+     * Acepta abreviaturas en inglés o español: Mon..Sun / Lun..Dom
      */
     protected function nextDateForWeekday(string $day): string
     {
@@ -391,7 +444,7 @@ class ClubSessionCrudController extends CrudController
         ];
         $norm = $map[$day] ?? strtolower($day);
         $date = Carbon::today();
-        if ($date->englishDayOfWeek !== ucfirst($norm)) {
+        if (strtolower($date->englishDayOfWeek) !== $norm) {
             $date = $date->next($norm);
         }
         return $date->toDateString();
